@@ -31,4 +31,5 @@ del_all_files([Dir | T], EmptyDirs) ->
 
 %% Einheitlicher Log Header
 logHeader(PID) ->
-  lists:concat(["<",node(),">|",werkzeug:timeMilliSecond(),">",pid_to_list(PID)]).
+  [_Head|ShorterPID] = pid_to_list(PID),
+  lists:concat(["<",node(),"|",werkzeug:timeMilliSecond(),ShorterPID," "]).
