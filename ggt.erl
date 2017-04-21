@@ -1,5 +1,6 @@
 -module(ggt).
 -export([start/1]).
 
-start([]) ->
-  
+start([ ArbeitsZeit , TermZeit , Quota , GGTProzessnummer , Praktikumsgruppe , Teamnummer , Nameservicenode , Nameservicename , Noordinatorname ]) ->
+  moin
+  .
