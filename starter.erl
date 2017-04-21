@@ -59,7 +59,7 @@ getSteeringVal(Koordinator,GgtConfigList,Log) ->
 spawn_ggt(_,_,_,0,_,Log) -> logging(Log,concat([logHeader(self()),"Alle ggt-Prozesse gestartet.\n"]));
 spawn_ggt(ArbeitsZeit, TermZeit, Quota, GGTProzessanz, GgtConfigList,Log) ->
   [Starternummer,Praknummer,Teamnummer,NameserviceNode,NameserviceName,KoordName] = GgtConfigList,
-  ggt:start([ArbeitsZeit,TermZeit,Quota,GGTProzessanz,Starternummer,Praknummer,Teamnummer,NameserviceNode,NameserviceName,KoordName]),
+  spawn(ggt,start,[ArbeitsZeit,TermZeit,Quota,GGTProzessanz,Starternummer,Praknummer,Teamnummer,NameserviceNode,NameserviceName,KoordName]),
   logging(Log,io_lib:format("ggt:start([~p,~p,~p,~p,~p,~p,~p,~p,~p,~p])\n",
     [ArbeitsZeit,TermZeit,Quota,GGTProzessanz,Starternummer,Praknummer,Teamnummer,NameserviceNode,NameserviceName,KoordName])),
   spawn_ggt(ArbeitsZeit, TermZeit, Quota, GGTProzessanz-1, GgtConfigList, Log).
