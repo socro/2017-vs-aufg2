@@ -1,6 +1,5 @@
 -module(starter).
--export([start/0]).
+-export([start_starter/2]).
+-import(helper,[logHeader/1]).
 
-start() ->
-  moin
-  .
+start_starter(Anzahl,Starternummer) ->
