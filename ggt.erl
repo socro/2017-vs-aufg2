@@ -31,9 +31,30 @@ notify_koordinator(GGTName,Nameservice, Koordinatorname) ->
       Koordinator ! {hello,GGTName}
   end.
 
-calc_ggt_loop(GGTName,Nameservice,Mi) ->
+send_mi_neighbors(Nameservice,Mi,LeftNeighborName,RightNeighborName) ->
+  Nameservice ! {self(),{lookup,LeftNeighborName}},
   receive
-    {setneighbors,LeftN,RightN} ->
+    not_found ->
+      io:format("..~p ..not_found.\n",[LeftNeighborName]);
+    {pin,{LeftNeighborName,LeftNeighborNode}} ->
+      io:format("...ok: {~p,~p}.\n",[LeftNeighborName,LeftNeighborNode]),
+      LeftNeighbor = {LeftNeighborName, LeftNeighborNode},
+      LeftNeighbor ! {sendy,Mi}
+  end,
+  Nameservice ! {self(),{lookup,RightNeighborName}},
+  receive
+    not_found ->
+      io:format("..~p ..not_found.\n",[RightNeighborName]);
+    {pin,{RightNeighborName,RightNeighborNode}} ->
+      io:format("...ok: {~p,~p}.\n",[RightNeighborName,RightNeighborNode]),
+      RightNeighbor = {RightNeighborName, RightNeighborNode},
+      RightNeighbor ! {sendy,Mi}
+  end.
+
+calc_ggt_loop(GGTName,Nameservice,Mi,LeftNeighborName,RightNeighborName) ->
+  receive
+    {setneighbors,NewLeftNeighborName,NewRightNeighborName} ->
+      calc_ggt_loop(GGTName,Nameservice,Mi,NewLeftNeighborName,NewRightNeighborName)
       ;
     {setpm,MiNeu} ->
       ;
@@ -45,9 +66,9 @@ calc_ggt_loop(GGTName,Nameservice,Mi) ->
       ;
     {From,tellmi} ->
       From ! {mi,Mi},
-      calc_ggt_loop(GGTName,Nameservice,Mi)
+      calc_ggt_loop(GGTName,Nameservice,Mi,LeftNeighborName,RightNeighborName)
       ;
     {From,pingGGT} ->
       From ! {pongGGT,GGTName},
-      calc_ggt_loop(GGTName,Nameservice,Mi)
+      calc_ggt_loop(GGTName,Nameservice,Mi,LeftNeighborName,RightNeighborName)
 end.
