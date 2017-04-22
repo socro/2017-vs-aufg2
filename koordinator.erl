@@ -30,3 +30,13 @@ start() ->
   logging(Log,concat(["-----------------------------------Log File Koordinator-----------------------------------\n"])),
   logging(Log,concat([logHeader(MyPID),"Koordinator gestartet.\n"])),
   eof.
+
+
+
+%# code Schnipsel
+%setNeighbors(ErsterProzess|R) ->
+%% sende nachricht für ersten prozess
+%% sende nachricht für letzten prozess
+%setNeighbors(LeftNeighbor,[Elem|[RightNeigbour|RestRing])
+%setNeighbors(LeftNeighbor,[Elem|[RightNeigbour|RestRing]) ->
+%% sende nachricht für alle anderen Prozesse
