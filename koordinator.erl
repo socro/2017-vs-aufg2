@@ -16,10 +16,10 @@ start() ->
   {ok, NameserviceNode} = get_config_value(nameservicenode,ConfigListe),
   {ok, NameserviceName} = get_config_value(nameservicename,ConfigListe),
   {ok, KoordName}       = get_config_value(koordinatorname,ConfigListe),
-  {ok, Quote}           = get_config_value(quote,ConfigListe),
+  {ok, QuoteProzent}           = get_config_value(quote,ConfigListe),
   {ok, HelpFlag}        = get_config_value(korrigieren,ConfigListe),
 
-
+  Nameservice = {NameserviceName, NameserviceNode},
   %% Pre-flight initialisation
   MyPID       = self(),
 
@@ -27,10 +27,50 @@ start() ->
   LoggingFile = "koordinator.log",
   Log         = LoggingDir ++ LoggingFile,
 
+  StaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,QuoteProzent,HelpFlag],
+
   logging(Log,concat(["-----------------------------------Log File Koordinator-----------------------------------\n"])),
   logging(Log,concat([logHeader(MyPID),"Koordinator gestartet.\n"])),
-  eof.
 
+  net_adm:ping(NameserviceNode),
+  register(KoordName,self())
+  .
+
+loop(StaticConfig,GGTAnzahlGemeldet,GGTListe,Arbeitsphase) ->
+  [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,HelpFlag] = StaticConfig,
+  receive
+    % public messages
+    {From,getsteeringval} when Arbeitsphase == false ->
+      GGTAnzahlGemeldetNeu = GGTAnzahlGemeldet + GGTAnz,
+      QuoteAbsolut = round(GGTAnzahlGemeldetNeu * Quote / 100),
+      From ! {steeringval,Arbeitszeit,Termzeit,QuoteAbsolut,GGTAnz}
+      ;
+    {From,getsteeringval} when Arbeitsphase == true ->
+      logging(Log,format("~sgetsteeringval in Arbeitsphase erhalten, ignorieren...\n",[logHeader(self())]));
+    {hello,Clientname} when Arbeitsphase == false ->
+      GGTListeNeu = concat([GGTListe,Clientname])
+      ;
+    {hello,Clientname} when Arbeitsphase == true ->
+      logging(Log,format("~shello in Arbeitsphase erhalten, ignorieren...\n",[logHeader(self())]));
+    {briefmi,{Clientname,CMi,CZeit}} ->
+      ;
+    {From,briefterm,{Clientname,CMi,CZeit}} ->
+      ;
+    {calc,WggT} ->
+      ;
+    reset ->
+      ;
+    step ->
+      ;
+    prompt ->
+      ;
+    kill ->
+      ;
+    nudge ->
+      ;
+    toggle ->
+      ;
+  end.
 
 
 %# code Schnipsel

@@ -9,6 +9,7 @@ start([ ArbeitsZeit , TermZeit , Quota , GGTProzessnummer , Starternummer, Prakt
   Nameservice = {Nameservicename, Nameservicenode},
   GGTName = create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer),
   Log = format("logs/ggts/~p.log",[GGTName]),
+  net_adm:ping(Nameservicenode),
   register(GGTName,self()),
   notify_nameservice(Log,GGTName,Nameservice),
   notify_koordinator(Log,GGTName,Nameservice,Koordinatorname),
@@ -23,7 +24,8 @@ start([ ArbeitsZeit , TermZeit , Quota , GGTProzessnummer , Starternummer, Prakt
   .
 
 create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer) ->
-  lists:concat([Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer]).
+  %format("~p~p~p~p",[Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer]).
+  list_to_atom(lists:concat([Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer])).
 
 notify_nameservice(Log,GGTName,Nameservice) ->
   Nameservice ! {self(),{rebind,GGTName,node()}},
