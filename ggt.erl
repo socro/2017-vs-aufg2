@@ -30,7 +30,6 @@ create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer) ->
 
 notify_koordinator(Log,GGTName,Koordinatorname) ->
   Koordinator = lookup(Koordinatorname),
-  logging(Log,format("~p",[Koordinator])),
   Koordinator ! {hello,GGTName}.
 
 calc_mi(Mi,Y,ArbeitsZeit) ->
@@ -69,7 +68,7 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       logging(Log,format("~sY (~p) erhalten, ist < Mi (~p), berechne neues Mi...\n",[logHeader(self()),Y,Mi])),
       NewMi = calc_mi(Mi,Y,ArbeitsZeit),
       send_mi_neighbors(Log,NewMi,LeftNeighborName,RightNeighborName),
-      send_ggt(Log,GGTName,Koordinatorname,Mi,briefmi),
+      send_ggt(Log,GGTName,Koordinatorname,NewMi,briefmi),
       calc_ggt_loop(StaticConfig,NewMi,LeftNeighborName,RightNeighborName,NewTimer,0,false)
       ;
     {sendy,Y} when Y >= Mi ->
@@ -113,5 +112,7 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,0,true)
       ;
     {terminateAfterTimeout} when HalbeTermZeitVergangen == false->
-      calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,true)
+      logging(Log,format("~sggt-Prozess (~p) meldet: halbe Terminierungszeit vergangen...\n",[logHeader(self()),GGTName])),
+      NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
+      calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,NewTimer,AnzahlVoteYesErhalten,true)
 end.

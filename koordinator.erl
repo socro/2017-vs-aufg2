@@ -2,9 +2,9 @@
 -export([start/0]).
 
 -import(helper,[logHeader/1,lookup/1,shuffle/1,notify_nameservice/3]).
--import(werkzeug,[logging/2,get_config_value/2,bestimme_mis/2]).
+-import(werkzeug,[logging/2,get_config_value/2,bestimme_mis/2,now2string/1]).
 -import(io_lib,[format/2]).
--import(lists,[concat/1]).
+-import(lists,[append/2,concat/1]).
 
 start() ->
   %% Read koordinator.cfg
@@ -108,6 +108,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
   receive
     % public messages
     {From,getsteeringval} when Arbeitsphase == false ->
+      logging(Log,format("~sgetsteeringval erhalten\n",[logHeader(self())])),
       GGTAnzahlGemeldetNeu = GGTAnzahlGemeldet + GGTAnz,
       QuoteAbsolut = round(GGTAnzahlGemeldetNeu * Quote / 100),
       From ! {steeringval,Arbeitszeit,Termzeit,QuoteAbsolut,GGTAnz},
@@ -118,14 +119,16 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     {hello,Clientname} when Arbeitsphase == false ->
-      GGTListeNeu = concat([GGTListe,Clientname]),
+      logging(Log,format("~shello erhalten von ~p\n",[logHeader(self()),Clientname])),
+      GGTListeNeu = append(GGTListe,[Clientname]),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListeNeu,Arbeitsphase)
       ;
     {hello,Clientname} when Arbeitsphase == true ->
       logging(Log,format("~shello in Arbeitsphase erhalten, ignorieren...\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    {briefmi,{Clientname,CMi,CZeit}} when Arbeitsphase == true,  AktuellKleinsterGGT /= notset, CMi < AktuellKleinsterGGT ->
+    {briefmi,{Clientname,CMi,CZeit}} when  Arbeitsphase == true,  AktuellKleinsterGGT == notset; Arbeitsphase == true, CMi < AktuellKleinsterGGT ->
+      logging(Log,format("~sbriefmi mit Mi ~p von ~p erhalten, Zeit ~p.\n",[logHeader(self()),CMi,Clientname,now2string(CZeit)])),
       loop(StaticConfig,GGTAnzahlGemeldet,CMi,GGTListe,Arbeitsphase)
       ;
     {briefmi,{Clientname,CMi,CZeit}} when Arbeitsphase == false; CMi >= AktuellKleinsterGGT ->
@@ -133,13 +136,15 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     {From,briefterm,{Clientname,CMi,CZeit}} when Arbeitsphase == true ->
-      logging(Log,format("~sbriefmi mit Mi ~p von ~p erhalten, Zeit ~p.\n",[logHeader(self()),CMi,Clientname,CZeit])),
+      logging(Log,format("~sbriefterm mit Mi ~p von ~p erhalten, Zeit ~p.\n",[logHeader(self()),CMi,Clientname,now2string(CZeit)])),
       if
         CMi > AktuellKleinsterGGT ->
           logging(Log,format("~sMi ist zu groß",[logHeader(self())])),
           if
             HelpFlag == true -> From ! {sendy,AktuellKleinsterGGT}
-          end
+          end;
+        CMi == AktuellKleinsterGGT ->
+          logging(Log,format("~sGGT entspricht dem aktuellen Mi, alles gut\n",[logHeader(self())]))
       end,
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -151,7 +156,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       MiWerteListe = bestimme_mis(WggT,length(GGTListe)),
       sendMis(Log,GGTListe,MiWerteListe,setpm),
       sendStartMis(Log,WggT,GGTListe),
-      loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
+      loop(StaticConfig,GGTAnzahlGemeldet,notset,GGTListe,Arbeitsphase)
       ;
     {calc,WggT} when Arbeitsphase == false->
       logging(Log,format("~scalc ignorieren da außerhalb der Arbeitsphase erhalten.\n",[logHeader(self())])),
@@ -161,12 +166,17 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       logging(Log,format("~spongGGT erhalten von ~p\n",[logHeader(self()),Clientname])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
+    {From,{vote,InitiatorName}} ->
+      logging(Log,format("~sggt-Prozess (~p) hat vote gesendet, tue nichts...\n",[logHeader(self()),InitiatorName])),
+      loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
+      ;
     reset ->
       sendKill(Log,GGTListe),
       logging(Log,format("~sKoordinator reset\n",[logHeader(self())])),
       loop(StaticConfig,0,notset,[],false)
       ;
     step when Arbeitsphase == false ->
+      logging(Log,format("~sstep erhalten\n",[logHeader(self())])),
       GGTProzessListeShuffled = shuffle(GGTListe),
       setNeighbors(Log,GGTProzessListeShuffled),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,true)

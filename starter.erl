@@ -1,11 +1,11 @@
 -module(starter).
--export([start_starter/1]).
+-export([start/1]).
 
 -import(helper,[logHeader/1]).
 -import(werkzeug,[logging/2,get_config_value/2]).
 -import(lists,[concat/1]).
 
-start_starter(Starternummer) ->
+start(Starternummer) ->
   %% Read ggt.cfg
   GgtConfig = "cfg/ggt.cfg",
 
