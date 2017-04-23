@@ -1,11 +1,11 @@
 -module(starter).
--export([start_starter/2]).
+-export([start_starter/1]).
 
 -import(helper,[logHeader/1]).
 -import(werkzeug,[logging/2,get_config_value/2]).
 -import(lists,[concat/1]).
 
-start_starter(Anzahl,Starternummer) ->
+start_starter(Starternummer) ->
   %% Read ggt.cfg
   GgtConfig = "cfg/ggt.cfg",
 
@@ -27,7 +27,7 @@ start_starter(Anzahl,Starternummer) ->
   Log         = LoggingDir ++ LoggingFile,
 
   logging(Log,concat(["-----------------------------------Log File Starter ",Teamnummer,Starternummer, "-----------------------------------\n"])),
-  logging(Log,concat([logHeader(MyPID),"Es werden ",Anzahl," ggt-Prozesse gestartet.\n"])),
+
 
 
   %% Register on local erlang node, nameservice and wait
@@ -53,6 +53,7 @@ getSteeringVal(Koordinator,GgtConfigList,Log) ->
       logging(Log,concat([logHeader(self()),"TermZeit = ",TermZeit,"\n"])),
       logging(Log,concat([logHeader(self()),"Quota = ",Quota,"\n"])),
       logging(Log,concat([logHeader(self()),"GGTProzessanz = ",GGTProzessanz,"\n"])),
+      logging(Log,"ggt:start([ArbeitsZeit,TermZeit,Quota,GGTProzessanz,Starternummer,Praknummer,Teamnummer,NameserviceNode,NameserviceName,KoordName])"),
       spawn_ggt(ArbeitsZeit,TermZeit,Quota,GGTProzessanz,GgtConfigList,Log)
   end.
 
