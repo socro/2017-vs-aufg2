@@ -1,5 +1,7 @@
 -module(helper).
--export([del_dir/1,logHeader/1]).
+-import(werkzeug,[logging/2,get_config_value/2]).
+-import(io_lib,[format/2]).
+-export([del_dir/1,logHeader/1,shuffle/1,lookup/1,notify_nameservice/3]).
 
 %% Source: http://stackoverflow.com/a/30611957
 %% Added check if directory exists
@@ -33,3 +35,29 @@ del_all_files([Dir | T], EmptyDirs) ->
 logHeader(PID) ->
   [_Head|ShorterPID] = pid_to_list(PID),
   lists:concat(["<",node(),"|",werkzeug:timeMilliSecond(),ShorterPID," "]).
+
+lookup(WhatName) ->
+  Log = "logs/lookup.log",
+  KConfig = "cfg/koordinator.cfg",
+  {ok, ConfigListe}     = file:consult(KConfig),
+  {ok, NameserviceNode} = get_config_value(nameservicenode,ConfigListe),
+  {ok, NameserviceName} = get_config_value(nameservicename,ConfigListe),
+  Nameservice = {NameserviceName,NameserviceNode},
+  Nameservice ! {self(),{lookup,WhatName}},
+  receive
+    not_found ->
+      logging(Log,format("~sLookup ~p... not found\n",[logHeader(self()),WhatName]));
+    {pin,{WhatName,WhatNode}} ->
+      logging(Log,format("~sLookup ~p... ok ({~p,~p})\n",[logHeader(self()),WhatName,WhatName,WhatNode])),
+      {WhatName, WhatNode}
+  end.
+
+shuffle(Liste) ->
+  % Quelle: http://stackoverflow.com/a/8820501
+  [X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- Liste])].
+
+notify_nameservice(Log,Name,Nameservice) ->
+  Nameservice ! {self(),{rebind,Name,node()}},
+  receive
+    ok -> logging(Log,format("~srebind ok\n",[logHeader(self())]))
+  end.

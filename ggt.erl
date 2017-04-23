@@ -1,5 +1,5 @@
 -module(ggt).
--import(helper,[logHeader/1]).
+-import(helper,[logHeader/1,notify_nameservice/3,lookup/1]).
 -import(werkzeug,[logging/2]).
 -import(io_lib,[format/2]).
 -export([start/1]).
@@ -9,10 +9,11 @@ start([ ArbeitsZeit , TermZeit , Quota , GGTProzessnummer , Starternummer, Prakt
   Nameservice = {Nameservicename, Nameservicenode},
   GGTName = create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer),
   Log = format("logs/ggts/~p.log",[GGTName]),
-  net_adm:ping(Nameservicenode),
   register(GGTName,self()),
+  net_adm:ping(Nameservicenode),
   notify_nameservice(Log,GGTName,Nameservice),
-  notify_koordinator(Log,GGTName,Nameservice,Koordinatorname),
+  timer:sleep(500),
+  notify_koordinator(Log,GGTName,Koordinatorname),
   % initialize
   %   Mi = 0, will get set via setpm message later
   %   Timer as atom, -> has no effect, will be set later
@@ -27,72 +28,28 @@ create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer) ->
   %format("~p~p~p~p",[Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer]).
   list_to_atom(lists:concat([Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer])).
 
-notify_nameservice(Log,GGTName,Nameservice) ->
-  Nameservice ! {self(),{rebind,GGTName,node()}},
-  receive
-    ok -> logging(Log,format("~srebind ok\n",[logHeader(self())]))
-  end.
-
-notify_koordinator(Log,GGTName,Nameservice, Koordinatorname) ->
-  Nameservice ! {self(),{lookup,Koordinatorname}},
-  receive
-    not_found ->
-      logging(Log,format("~sLookup ~p... not found\n",[logHeader(self()),Koordinatorname]));
-    {pin,{Koordinatorname,Koordinatornode}} ->
-      logging(Log,format("~sLookup ~p... ok ({~p,~p})\n",[logHeader(self()),Koordinatorname,Koordinatorname,Koordinatornode])),
-      Koordinator = {Koordinatorname, Koordinatornode},
-      Koordinator ! {hello,GGTName}
-  end.
+notify_koordinator(Log,GGTName,Koordinatorname) ->
+  Koordinator = lookup(Koordinatorname),
+  logging(Log,format("~p",[Koordinator])),
+  Koordinator ! {hello,GGTName}.
 
 calc_mi(Mi,Y,ArbeitsZeit) ->
   timer:sleep(ArbeitsZeit*1000),
   ((Mi-1) rem Y)+1.
 
-send_mi_neighbors(Log,Nameservice,Mi,LeftNeighborName,RightNeighborName) ->
-  Nameservice ! {self(),{lookup,LeftNeighborName}},
-  receive
-    not_found ->
-      logging(Log,format("~sLookup ~p... not found\n",[logHeader(self()),LeftNeighborName]));
-    {pin,{LeftNeighborName,LeftNeighborNode}} ->
-      logging(Log,format("~sLookup ~p... ok ({~p,~p})\n",[logHeader(self()),LeftNeighborName,LeftNeighborName,LeftNeighborNode])),
-      LeftNeighbor = {LeftNeighborName, LeftNeighborNode},
-      LeftNeighbor ! {sendy,Mi}
-  end,
-  Nameservice ! {self(),{lookup,RightNeighborName}},
-  receive
-    not_found ->
-      logging(Log,format("~sLookup ~p... not found\n",[logHeader(self()),RightNeighborName]));
-    {pin,{RightNeighborName,RightNeighborNode}} ->
-      logging(Log,format("~sLookup ~p... ok ({~p,~p})\n",[logHeader(self()),RightNeighborName,RightNeighborName,RightNeighborNode])),
-      RightNeighbor = {RightNeighborName, RightNeighborNode},
-      RightNeighbor ! {sendy,Mi}
-  end.
+send_mi_neighbors(Log,Mi,LeftNeighborName,RightNeighborName) ->
+  LeftNeighbor = lookup(LeftNeighborName),
+  LeftNeighbor ! {sendy,Mi},
+  RightNeighbor = lookup(RightNeighborName),
+  RightNeighbor ! {sendy,Mi}.
 
 request_votes(GGTName,Nameservice) -> Nameservice ! {self(),{multicast,vote,GGTName}}.
 
-send_ggt(Log,GGTName,Nameservice,Koordinatorname,Mi,MsgType) ->
-  Nameservice ! {self(),{lookup,Koordinatorname}},
-  receive
-    not_found ->
-      logging(Log,format("~sLookup ~p... not found\n",[logHeader(self()),Koordinatorname]));
-    {pin,{Koordinatorname,Koordinatornode}} ->
-      logging(Log,format("~sLookup ~p... ok ({~p,~p})\n",[logHeader(self()),Koordinatorname,Koordinatorname,Koordinatornode])),
-      Koordinator = {Koordinatorname, Koordinatornode},
-      if
-        MsgType == briefterm -> Koordinator ! {self(),briefterm,{GGTName,Mi,erlang:timestamp()}};
-        MsgType == briefmi -> Koordinator ! {briefmi,{GGTName,Mi,erlang:timestamp()}}
-      end
-  end.
-
-send_mi(Log,GGTName,Nameservice,Koordinatorname,Mi) ->
-  Nameservice ! {self(),{lookup,Koordinatorname}},
-  receive
-    not_found ->
-      logging(Log,format("~sLookup ~p... not found\n",[logHeader(self()),Koordinatorname]));
-    {pin,{Koordinatorname,Koordinatornode}} ->
-      logging(Log,format("~sLookup ~p... ok ({~p,~p})\n",[logHeader(self()),Koordinatorname,Koordinatorname,Koordinatornode])),
-      Koordinator = {Koordinatorname, Koordinatornode},
-      Koordinator ! {self(),briefterm,{GGTName,Mi,erlang:timestamp()}}
+send_ggt(Log,GGTName,Koordinatorname,Mi,MsgType) ->
+  Koordinator = lookup(Koordinatorname),
+  if
+    MsgType == briefterm -> Koordinator ! {self(),briefterm,{GGTName,Mi,erlang:timestamp()}};
+    MsgType == briefmi -> Koordinator ! {briefmi,{GGTName,Mi,erlang:timestamp()}}
   end.
 
 calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,HalbeTermZeitVergangen) ->
@@ -105,20 +62,20 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
     {setpm,NewMi} ->
       NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
       logging(Log,format("~sggt-Prozess (~p) soll eine neue Berechnung durchfuehren (setpm ~p erhalten)\n",[logHeader(self()),GGTName,NewMi])),
-      calc_ggt_loop(StaticConfig,NewMi,LeftNeighborName,RightNeighborName,NewTimer,AnzahlVoteYesErhalten,false)
+      calc_ggt_loop(StaticConfig,NewMi,LeftNeighborName,RightNeighborName,NewTimer,0,false)
       ;
     {sendy,Y} when Y < Mi ->
       NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
       logging(Log,format("~sY (~p) erhalten, ist < Mi (~p), berechne neues Mi...\n",[logHeader(self()),Y,Mi])),
       NewMi = calc_mi(Mi,Y,ArbeitsZeit),
-      send_mi_neighbors(Log,Nameservice,NewMi,LeftNeighborName,RightNeighborName),
-      send_ggt(Log,GGTName,Nameservice,Koordinatorname,Mi,briefmi),
-      calc_ggt_loop(StaticConfig,NewMi,LeftNeighborName,RightNeighborName,NewTimer,AnzahlVoteYesErhalten,false)
+      send_mi_neighbors(Log,NewMi,LeftNeighborName,RightNeighborName),
+      send_ggt(Log,GGTName,Koordinatorname,Mi,briefmi),
+      calc_ggt_loop(StaticConfig,NewMi,LeftNeighborName,RightNeighborName,NewTimer,0,false)
       ;
     {sendy,Y} when Y >= Mi ->
       NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
       logging(Log,format("~sY (~p) erhalten, ist >= Mi (~p), tue nichts.\n",[logHeader(self()),Y,Mi])),
-      calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,NewTimer,AnzahlVoteYesErhalten,false)
+      calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,NewTimer,0,false)
       ;
     {From,{vote,Initiator}} when HalbeTermZeitVergangen == true->
       logging(Log,format("~sggt-Prozess (~p) meldet: Terminierungsanfrage erhalten, antworte sendYes...\n",[logHeader(self()),GGTName])),
@@ -131,7 +88,7 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       ;
     {voteYes,Name} when AnzahlVoteYesErhalten+1 == Quota ->
       logging(Log,format("~sggt-Prozess (~p) meldet: voteYes erhalten, Quota erreicht, sende ggt...\n",[logHeader(self()),GGTName])),
-      send_ggt(Log,GGTName,Nameservice,Koordinatorname,Mi,briefterm),
+      send_ggt(Log,GGTName,Koordinatorname,Mi,briefterm),
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten+1,HalbeTermZeitVergangen)
       ;
     {voteYes,Name} when AnzahlVoteYesErhalten+1 < Quota; AnzahlVoteYesErhalten+1 > Quota ->
