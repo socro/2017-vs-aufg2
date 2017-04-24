@@ -22,8 +22,10 @@ start(Starternummer) ->
   MyPID       = self(),
   StarterName = concat(["starter",Teamnummer,Starternummer]),
 
+  {ok,MyHostname} = inet:gethostname(),
+
   LoggingDir  = "logs/starters/",
-  LoggingFile = concat(["starter",Starternummer,".log"]),
+  LoggingFile = concat(["ggt",Starternummer,"@",MyHostname,".log"]),
   Log         = LoggingDir ++ LoggingFile,
 
   logging(Log,concat(["-----------------------------------Log File Starter ",Teamnummer,Starternummer, "-----------------------------------\n"])),

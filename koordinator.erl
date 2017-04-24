@@ -24,7 +24,7 @@ start() ->
   %% Pre-flight initialisation
 
   LoggingDir  = "logs/koordinator/",
-  LoggingFile = "koordinator.log",
+  LoggingFile = concat([node(),".log"]),
   Log         = LoggingDir ++ LoggingFile,
 
   StaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,QuoteProzent,HelpFlag],
@@ -44,18 +44,22 @@ setNeighbors(Log,ProzessListe) ->
   {_,[VorletzterProzessName,LetzerProzessName]} = lists:split(length(ProzessListe)-2,ProzessListe),
   ErsterProzess = lookup(ErsterProzessName),
   LetzerProzess = lookup(LetzerProzessName),
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),LetzerProzessName,ZweiterProzessName,ErsterProzess])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",
+    [logHeader(self()),LetzerProzessName,ZweiterProzessName,ErsterProzess])),
   ErsterProzess ! {setneighbors,LetzerProzessName,ZweiterProzessName},
   LetzerProzess ! {setneighbors,VorletzterProzessName,ErsterProzessName},
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),VorletzterProzessName,ErsterProzessName,LetzerProzess])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",
+    [logHeader(self()),VorletzterProzessName,ErsterProzessName,LetzerProzess])),
   setNeighbors(Log,ErsterProzessName,[ZweiterProzessName|R]).
 setNeighbors(Log,LeftNeighborName,[ProzessName,RightNeighborName]) ->
   Prozess = lookup(ProzessName),
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),LeftNeighborName,RightNeighborName,Prozess])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",
+    [logHeader(self()),LeftNeighborName,RightNeighborName,Prozess])),
   Prozess ! {setneighbors,LeftNeighborName,RightNeighborName};
 setNeighbors(Log,LeftNeighborName,[ProzessName|[RightNeighborName|R]]) ->
   Prozess = lookup(ProzessName),
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),LeftNeighborName,RightNeighborName,Prozess])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",
+    [logHeader(self()),LeftNeighborName,RightNeighborName,Prozess])),
   Prozess ! {setneighbors,LeftNeighborName,RightNeighborName},
   setNeighbors(Log,ProzessName,[RightNeighborName|R]).
 
@@ -68,14 +72,13 @@ sendMis(Log,[ProzessName|RProzesse],[Mi|RMi],MsgType) ->
   sendMis(Log,RProzesse,RMi,MsgType).
 
 sendStartMis(Log,Wggt,ProzessListe) ->
+  GeshuffelteProzessliste = shuffle(ProzessListe),
   AnzahlStarterMisTmp = round(length(ProzessListe) * 20 / 100),
   if
     AnzahlStarterMisTmp < 2 -> AnzahlStarterMis = 2;
     AnzahlStarterMisTmp >= 2 -> AnzahlStarterMis = AnzahlStarterMisTmp
   end,
-  {StarterMisListeTmp,_} = lists:split(AnzahlStarterMis,ProzessListe),
-  % Shuffle StarterMisListeTmp
-  StarterMisListe = shuffle(StarterMisListeTmp),
+  {StarterMisListe,_} = lists:split(AnzahlStarterMis,GeshuffelteProzessliste),
   StarterMiWerteListe = bestimme_mis(Wggt,length(StarterMisListe)),
   sendMis(Log,StarterMisListe,StarterMiWerteListe,sendy).
 
@@ -132,14 +135,14 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       loop(StaticConfig,GGTAnzahlGemeldet,CMi,GGTListe,Arbeitsphase)
       ;
     {briefmi,{_Clientname,CMi,_CZeit}} when Arbeitsphase == false; CMi >= AktuellKleinsterGGT ->
-      logging(Log,format("~sbriefmi ignorieren...\n",[logHeader(self())])),
+%%      logging(Log,format("~sbriefmi ignorieren...\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     {From,briefterm,{Clientname,CMi,CZeit}} when Arbeitsphase == true ->
       logging(Log,format("~sbriefterm mit Mi ~p von ~p erhalten, Zeit ~p.\n",[logHeader(self()),CMi,Clientname,now2string(CZeit)])),
       if
         CMi > AktuellKleinsterGGT ->
-          logging(Log,format("~sMi ist zu groß",[logHeader(self())])),
+          logging(Log,format("~sMi ist zu groß!\n",[logHeader(self())])),
           if
             HelpFlag == 1 -> From ! {sendy,AktuellKleinsterGGT};
             true -> logging(Log,format("~sBriefterm Falschmeldung\n",[logHeader(self())]))
@@ -181,8 +184,8 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       logging(Log,format("~smi ignorieren da außerhalb der Arbeitsphase erhalten.\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    {_From,{vote,InitiatorName}} ->
-      logging(Log,format("~sggt-Prozess (~p) hat vote gesendet, tue nichts...\n",[logHeader(self()),InitiatorName])),
+    {_From,{vote,_InitiatorName}} ->
+%%      logging(Log,format("~sggt-Prozess (~p) hat vote gesendet, tue nichts...\n",[logHeader(self()),InitiatorName])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     reset ->
