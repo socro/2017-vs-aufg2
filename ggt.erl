@@ -30,7 +30,7 @@ create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer) ->
 
 notify_koordinator(Log,GGTName,Koordinatorname) ->
   Koordinator = lookup(Koordinatorname),
-  logging(Log,format("~s~p sendet hello an ~p -> ~p\n",[logHeader(self()),GGTName,Koordinatorname,Koordinator])),
+  logging(Log,format("~s~p sendet hello an ~w\n",[logHeader(self()),GGTName,Koordinator])),
   Koordinator ! {hello,GGTName}.
 
 calc_mi(Mi,Y,ArbeitsZeit) ->
@@ -42,8 +42,8 @@ send_mi_neighbors(Log,Mi,LeftNeighborName,RightNeighborName) ->
   LeftNeighbor ! {sendy,Mi},
   RightNeighbor = lookup(RightNeighborName),
   RightNeighbor ! {sendy,Mi},
-  logging(Log,format("~sSende neues Mi(~p) an rechten Nachbarn ~p->~p und linken Nachbarn ~p->~p\n",
-    [logHeader(self()),Mi,LeftNeighborName,LeftNeighbor,RightNeighborName,RightNeighbor])).
+  logging(Log,format("~sSende neues Mi(~p) an rechten Nachbarn ~w und linken Nachbarn ~w\n",
+    [logHeader(self()),Mi,LeftNeighbor,RightNeighbor])).
 
 request_votes(GGTName,Nameservice) -> Nameservice ! {self(),{multicast,vote,GGTName}}.
 
@@ -53,7 +53,7 @@ send_ggt(Log,GGTName,Koordinatorname,Mi,MsgType) ->
     MsgType == briefterm -> Koordinator ! {self(),briefterm,{GGTName,Mi,erlang:timestamp()}};
     MsgType == briefmi -> Koordinator ! {briefmi,{GGTName,Mi,erlang:timestamp()}}
   end,
-  logging(Log,format("~s~p sendet Mi(~p) als ~p an ~p -> ~p\n",[logHeader(self()),GGTName,Mi,MsgType,Koordinatorname,Koordinator])).
+  logging(Log,format("~s~p sendet Mi(~p) als ~p an ~w\n",[logHeader(self()),GGTName,Mi,MsgType,Koordinator])).
 
 calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,HalbeTermZeitVergangen) ->
   [Log,GGTName,Nameservice,Koordinatorname,ArbeitsZeit,TermZeitHalbe,Quota] = StaticConfig,
@@ -69,7 +69,7 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       ;
     {sendy,Y} when Y < Mi ->
       NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
-      logging(Log,format("~sY (~p) erhalten, ist < Mi (~p), berechne neues Mi...\n",[logHeader(self()),Y,Mi]),critical),
+      logging(Log,format("~sY (~p) erhalten, ist < Mi (~p), berechne neues Mi...\n",[logHeader(self()),Y,Mi])),
       NewMi = calc_mi(Mi,Y,ArbeitsZeit),
       send_mi_neighbors(Log,NewMi,LeftNeighborName,RightNeighborName),
       send_ggt(Log,GGTName,Koordinatorname,NewMi,briefmi),
@@ -107,7 +107,9 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,HalbeTermZeitVergangen)
       ;
     kill ->
-      logging(Log,format("~sggt-Prozess (~p) meldet: kill erhalten.\n",[logHeader(self()),GGTName]))
+      logging(Log,format("~sggt-Prozess (~p) meldet: kill erhalten.\n",[logHeader(self()),GGTName])),
+      Nameservice ! {self(),{unbind,GGTName}},
+      unregister(GGTName)
       ;
     % internal messages
     {terminateAfterTimeout} when HalbeTermZeitVergangen == true->

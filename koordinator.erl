@@ -44,23 +44,23 @@ setNeighbors(Log,ProzessListe) ->
   {_,[VorletzterProzessName,LetzerProzessName]} = lists:split(length(ProzessListe)-2,ProzessListe),
   ErsterProzess = lookup(ErsterProzessName),
   LetzerProzess = lookup(LetzerProzessName),
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~p.\n",[logHeader(self()),LetzerProzessName,ZweiterProzessName,ErsterProzess])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),LetzerProzessName,ZweiterProzessName,ErsterProzess])),
   ErsterProzess ! {setneighbors,LetzerProzessName,ZweiterProzessName},
   LetzerProzess ! {setneighbors,VorletzterProzessName,ErsterProzessName},
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~p.\n",[logHeader(self()),VorletzterProzessName,ErsterProzessName,LetzerProzess])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),VorletzterProzessName,ErsterProzessName,LetzerProzess])),
   setNeighbors(Log,ErsterProzessName,[ZweiterProzessName|R]).
 setNeighbors(Log,LeftNeighborName,[ProzessName,RightNeighborName]) ->
   Prozess = lookup(ProzessName),
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~p.\n",[logHeader(self()),LeftNeighborName,RightNeighborName,ProzessName])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),LeftNeighborName,RightNeighborName,Prozess])),
   Prozess ! {setneighbors,LeftNeighborName,RightNeighborName};
 setNeighbors(Log,LeftNeighborName,[ProzessName|[RightNeighborName|R]]) ->
   Prozess = lookup(ProzessName),
-  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~p.\n",[logHeader(self()),LeftNeighborName,RightNeighborName,ProzessName])),
+  logging(Log,format("~sSende setneighbors mit links ~p und rechts ~p an ~w.\n",[logHeader(self()),LeftNeighborName,RightNeighborName,Prozess])),
   Prozess ! {setneighbors,LeftNeighborName,RightNeighborName},
   setNeighbors(Log,ProzessName,[RightNeighborName|R]).
 
 sendMis(Log,[],[],_MsgType) ->
-  logging(Log,format("~sAlle PMs gesetzt",[logHeader(self())]));
+  logging(Log,format("~sAlle PMs gesetzt\n",[logHeader(self())]));
 sendMis(Log,[ProzessName|RProzesse],[Mi|RMi],MsgType) ->
   Prozess = lookup(ProzessName),
   logging(Log,format("~sSende setpm mit Mi ~p an ~p.\n",[logHeader(self()),Mi,ProzessName])),
@@ -80,7 +80,7 @@ sendStartMis(Log,Wggt,ProzessListe) ->
   sendMis(Log,StarterMisListe,StarterMiWerteListe,sendy).
 
 sendKill(Log,[]) ->
-  logging(Log,format("~sAllen ggt-Prozesse kill gesendet",[logHeader(self())]));
+  logging(Log,format("~sAllen ggt-Prozesse kill gesendet\n",[logHeader(self())]));
 sendKill(Log,[ProzessName|R]) ->
   Prozess = lookup(ProzessName),
   logging(Log,format("~sSende kill an ggt-Prozess ~p",[logHeader(self()),ProzessName])),
@@ -88,7 +88,7 @@ sendKill(Log,[ProzessName|R]) ->
   sendKill(Log,R).
 
 sendTellmi(Log,[]) ->
-  logging(Log,format("~sAllen Prozesse tellmi gesendet",[logHeader(self())]));
+  logging(Log,format("~sAllen Prozesse tellmi gesendet\n",[logHeader(self())]));
 sendTellmi(Log,[ProzessName|RProzesse]) ->
   Prozess = lookup(ProzessName),
   logging(Log,format("~sSende tellmi an ~p.\n",[logHeader(self()),ProzessName])),
@@ -96,7 +96,7 @@ sendTellmi(Log,[ProzessName|RProzesse]) ->
   sendTellmi(Log,RProzesse).
 
 sendPingGGT(Log,[]) ->
-  logging(Log,format("~sAllen Prozesse pingGGT gesendet",[logHeader(self())]));
+  logging(Log,format("~sAllen Prozesse pingGGT gesendet\n",[logHeader(self())]));
 sendPingGGT(Log,[ProzessName|RProzesse]) ->
   Prozess = lookup(ProzessName),
   logging(Log,format("~sSende pingGGT an ~p.\n",[logHeader(self()),ProzessName])),
@@ -144,7 +144,9 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
             HelpFlag == true -> From ! {sendy,AktuellKleinsterGGT}
           end;
         CMi == AktuellKleinsterGGT ->
-          logging(Log,format("~sGGT entspricht dem aktuellen Mi, alles gut\n",[logHeader(self())]))
+          logging(Log,format("~sGGT entspricht dem aktuellen Mi, alles gut\n",[logHeader(self())]));
+        CMi == notset ->
+          logging(Log,format("~sBriefterm vor der ersten Berechnung erhalten.\n",[logHeader(self())]))
       end,
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -156,6 +158,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       MiWerteListe = bestimme_mis(WggT,length(GGTListe)),
       sendMis(Log,GGTListe,MiWerteListe,setpm),
       sendStartMis(Log,WggT,GGTListe),
+      logging(Log,format("~sNeue Berechnung angestoßen, Wggt: ~p.\n",[logHeader(self()),WggT]),critcal),
       loop(StaticConfig,GGTAnzahlGemeldet,notset,GGTListe,Arbeitsphase)
       ;
     {calc,_WggT} when Arbeitsphase == false->
@@ -164,6 +167,14 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       ;
     {pongGGT,Clientname} ->
       logging(Log,format("~spongGGT erhalten von ~p\n",[logHeader(self()),Clientname])),
+      loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
+      ;
+    {mi,Mi} when Arbeitsphase == true->
+      logging(Log,format("~sMi erhalten: ~p\n",[logHeader(self()),Mi])),
+      loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
+      ;
+    {mi,_Mi} when Arbeitsphase == false->
+      logging(Log,format("~smi ignorieren da außerhalb der Arbeitsphase erhalten.\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     {_From,{vote,InitiatorName}} ->
