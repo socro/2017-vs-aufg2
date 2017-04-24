@@ -30,7 +30,7 @@ start() ->
   StaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,QuoteProzent,HelpFlag],
 
   logging(Log,concat(["-----------------------------------Log File Koordinator-----------------------------------\n"])),
-  logging(Log,concat([logHeader(self()),"Koordinator gestartet.\n"])),
+  logging(Log,concat([logHeader(self()),"Koordinator gestartet.\n"]),critical),
   register(KoordName,self()),
   net_adm:ping(NameserviceNode),
   notify_nameservice(Log,KoordName,Nameservice),
@@ -108,13 +108,13 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
   receive
     % public messages
     {From,getsteeringval} when Arbeitsphase == false ->
-      logging(Log,format("~sgetsteeringval erhalten\n",[logHeader(self())])),
       GGTAnzahlGemeldetNeu = GGTAnzahlGemeldet + GGTAnz,
       QuoteAbsolut = round(GGTAnzahlGemeldetNeu * Quote / 100),
       From ! {steeringval,Arbeitszeit,Termzeit,QuoteAbsolut,GGTAnz},
+      logging(Log,format("~sgetsteeringval erhalten [~p,~p,~p,~p]\n",[logHeader(self()),Arbeitszeit,Termzeit,QuoteAbsolut,GGTAnz]),critical),
       loop(StaticConfig,GGTAnzahlGemeldetNeu,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    {From,getsteeringval} when Arbeitsphase == true ->
+    {_From,getsteeringval} when Arbeitsphase == true ->
       logging(Log,format("~sgetsteeringval in Arbeitsphase erhalten, ignorieren...\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -123,15 +123,15 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       GGTListeNeu = append(GGTListe,[Clientname]),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListeNeu,Arbeitsphase)
       ;
-    {hello,Clientname} when Arbeitsphase == true ->
+    {hello,_Clientname} when Arbeitsphase == true ->
       logging(Log,format("~shello in Arbeitsphase erhalten, ignorieren...\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     {briefmi,{Clientname,CMi,CZeit}} when  Arbeitsphase == true,  AktuellKleinsterGGT == notset; Arbeitsphase == true, CMi < AktuellKleinsterGGT ->
-      logging(Log,format("~sbriefmi mit Mi ~p von ~p erhalten, Zeit ~p.\n",[logHeader(self()),CMi,Clientname,now2string(CZeit)])),
+      logging(Log,format("~sbriefmi mit Mi ~p von ~p erhalten, Zeit ~p.\n",[logHeader(self()),CMi,Clientname,now2string(CZeit)]),critical),
       loop(StaticConfig,GGTAnzahlGemeldet,CMi,GGTListe,Arbeitsphase)
       ;
-    {briefmi,{Clientname,CMi,CZeit}} when Arbeitsphase == false; CMi >= AktuellKleinsterGGT ->
+    {briefmi,{_Clientname,CMi,_CZeit}} when Arbeitsphase == false; CMi >= AktuellKleinsterGGT ->
       logging(Log,format("~sbriefmi ignorieren...\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -148,7 +148,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       end,
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    {From,briefterm,{Clientname,CMi,CZeit}} when Arbeitsphase == false ->
+    {_From,briefterm,{_Clientname,_CMi,_CZeit}} when Arbeitsphase == false ->
       logging(Log,format("~sbriefterm ignorieren da außerhalb der Arbeitsphase erhalten.\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -158,7 +158,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       sendStartMis(Log,WggT,GGTListe),
       loop(StaticConfig,GGTAnzahlGemeldet,notset,GGTListe,Arbeitsphase)
       ;
-    {calc,WggT} when Arbeitsphase == false->
+    {calc,_WggT} when Arbeitsphase == false->
       logging(Log,format("~scalc ignorieren da außerhalb der Arbeitsphase erhalten.\n",[logHeader(self())])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -166,7 +166,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       logging(Log,format("~spongGGT erhalten von ~p\n",[logHeader(self()),Clientname])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    {From,{vote,InitiatorName}} ->
+    {_From,{vote,InitiatorName}} ->
       logging(Log,format("~sggt-Prozess (~p) hat vote gesendet, tue nichts...\n",[logHeader(self()),InitiatorName])),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
@@ -176,7 +176,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       loop(StaticConfig,0,notset,[],false)
       ;
     step when Arbeitsphase == false ->
-      logging(Log,format("~sstep erhalten\n",[logHeader(self())])),
+      logging(Log,format("~sstep erhalten\n",[logHeader(self())]),critical),
       GGTProzessListeShuffled = shuffle(GGTListe),
       setNeighbors(Log,GGTProzessListeShuffled),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,true)
@@ -202,17 +202,17 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     toggle when HelpFlag == true ->
-      logging(Log,format("~stoggle helpFlag von true auf false\n",[logHeader(self())])),
+      logging(Log,format("~stoggle helpFlag von true auf false\n",[logHeader(self())]),critical),
       NeuStaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,false],
       loop(NeuStaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     toggle when HelpFlag == false ->
-      logging(Log,format("~stoggle helpFlag von false auf true\n",[logHeader(self())])),
+      logging(Log,format("~stoggle helpFlag von false auf true\n",[logHeader(self())]),critical),
       NeuStaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,true],
       loop(NeuStaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     Any ->
-      logging(Log,format("~sHiermit können wir NICHTS anfangen: ~p\n",[logHeader(self()),Any])),
+      logging(Log,format("~sHiermit können wir NICHTS anfangen: ~p\n",[logHeader(self()),Any]),critical),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
   end.
 

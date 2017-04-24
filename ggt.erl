@@ -30,6 +30,7 @@ create_ggt_name(Praktikumsgruppe,Teamnummer,GGTProzessnummer,Starternummer) ->
 
 notify_koordinator(Log,GGTName,Koordinatorname) ->
   Koordinator = lookup(Koordinatorname),
+  logging(Log,format("~s~p sendet hello an ~p -> ~p\n",[logHeader(self()),GGTName,Koordinatorname,Koordinator])),
   Koordinator ! {hello,GGTName}.
 
 calc_mi(Mi,Y,ArbeitsZeit) ->
@@ -40,7 +41,9 @@ send_mi_neighbors(Log,Mi,LeftNeighborName,RightNeighborName) ->
   LeftNeighbor = lookup(LeftNeighborName),
   LeftNeighbor ! {sendy,Mi},
   RightNeighbor = lookup(RightNeighborName),
-  RightNeighbor ! {sendy,Mi}.
+  RightNeighbor ! {sendy,Mi},
+  logging(Log,format("~sSende neues Mi(~p) an rechten Nachbarn ~p->~p und linken Nachbarn ~p->~p\n",
+    [logHeader(self()),Mi,LeftNeighborName,LeftNeighbor,RightNeighborName,RightNeighbor])).
 
 request_votes(GGTName,Nameservice) -> Nameservice ! {self(),{multicast,vote,GGTName}}.
 
@@ -49,7 +52,8 @@ send_ggt(Log,GGTName,Koordinatorname,Mi,MsgType) ->
   if
     MsgType == briefterm -> Koordinator ! {self(),briefterm,{GGTName,Mi,erlang:timestamp()}};
     MsgType == briefmi -> Koordinator ! {briefmi,{GGTName,Mi,erlang:timestamp()}}
-  end.
+  end,
+  logging(Log,format("~s~p sendet Mi(~p) als ~p an ~p -> ~p\n",[logHeader(self()),GGTName,Mi,MsgType,Koordinatorname,Koordinator])).
 
 calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,HalbeTermZeitVergangen) ->
   [Log,GGTName,Nameservice,Koordinatorname,ArbeitsZeit,TermZeitHalbe,Quota] = StaticConfig,
@@ -60,12 +64,12 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       ;
     {setpm,NewMi} ->
       NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
-      logging(Log,format("~sggt-Prozess (~p) soll eine neue Berechnung durchfuehren (setpm ~p erhalten)\n",[logHeader(self()),GGTName,NewMi])),
+      logging(Log,format("~sggt-Prozess (~p) soll eine neue Berechnung durchfuehren (setpm ~p erhalten)\n",[logHeader(self()),GGTName,NewMi]),critical),
       calc_ggt_loop(StaticConfig,NewMi,LeftNeighborName,RightNeighborName,NewTimer,0,false)
       ;
     {sendy,Y} when Y < Mi ->
       NewTimer = werkzeug:reset_timer(Timer,TermZeitHalbe,{terminateAfterTimeout}),
-      logging(Log,format("~sY (~p) erhalten, ist < Mi (~p), berechne neues Mi...\n",[logHeader(self()),Y,Mi])),
+      logging(Log,format("~sY (~p) erhalten, ist < Mi (~p), berechne neues Mi...\n",[logHeader(self()),Y,Mi]),critical),
       NewMi = calc_mi(Mi,Y,ArbeitsZeit),
       send_mi_neighbors(Log,NewMi,LeftNeighborName,RightNeighborName),
       send_ggt(Log,GGTName,Koordinatorname,NewMi,briefmi),
@@ -76,21 +80,21 @@ calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVot
       logging(Log,format("~sY (~p) erhalten, ist >= Mi (~p), tue nichts.\n",[logHeader(self()),Y,Mi])),
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,NewTimer,0,false)
       ;
-    {From,{vote,Initiator}} when HalbeTermZeitVergangen == true->
+    {From,{vote,Initiator}} when HalbeTermZeitVergangen == true, Initiator /= GGTName->
       logging(Log,format("~sggt-Prozess (~p) meldet: Terminierungsanfrage erhalten, antworte sendYes...\n",[logHeader(self()),GGTName])),
       From ! {voteYes,GGTName},
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,HalbeTermZeitVergangen)
       ;
-    {From,{vote,InitiatorName}} when HalbeTermZeitVergangen == false->
+    {_From,{vote,_InitiatorName}} when HalbeTermZeitVergangen == false->
       logging(Log,format("~sggt-Prozess (~p) meldet: Terminierungsanfrage erhalten, ignorieren...\n",[logHeader(self()),GGTName])),
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten,HalbeTermZeitVergangen)
       ;
-    {voteYes,Name} when AnzahlVoteYesErhalten+1 == Quota ->
+    {voteYes,_Name} when AnzahlVoteYesErhalten+1 == Quota ->
       logging(Log,format("~sggt-Prozess (~p) meldet: voteYes erhalten, Quota erreicht, sende ggt...\n",[logHeader(self()),GGTName])),
       send_ggt(Log,GGTName,Koordinatorname,Mi,briefterm),
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten+1,HalbeTermZeitVergangen)
       ;
-    {voteYes,Name} when AnzahlVoteYesErhalten+1 < Quota; AnzahlVoteYesErhalten+1 > Quota ->
+    {voteYes,_Name} when AnzahlVoteYesErhalten+1 < Quota; AnzahlVoteYesErhalten+1 > Quota ->
       logging(Log,format("~sggt-Prozess (~p) meldet: voteYes erhalten, Anzahl Votes entsprechen nicht dem Quota...\n",[logHeader(self()),GGTName])),
       calc_ggt_loop(StaticConfig,Mi,LeftNeighborName,RightNeighborName,Timer,AnzahlVoteYesErhalten+1,HalbeTermZeitVergangen)
       ;

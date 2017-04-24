@@ -54,7 +54,7 @@ lookup(WhatName) ->
 
 shuffle(Liste) ->
   % Quelle: http://stackoverflow.com/a/8820501
-  [X||{_,X} <- lists:sort([ {random:uniform(), N} || N <- Liste])].
+  [X||{_,X} <- lists:sort([ {rand:uniform(), N} || N <- Liste])].
 
 notify_nameservice(Log,Name,Nameservice) ->
   Nameservice ! {self(),{rebind,Name,node()}},
@@ -64,5 +64,4 @@ notify_nameservice(Log,Name,Nameservice) ->
 
 logging(LogFile, String, critical) ->
   werkzeug:logging(LogFile,String),
-  CriticalLog = lists:concat(["logs/",werkzeug:getUTC(),".log"]),
-  werkzeug:logging(CriticalLog,String).
+  werkzeug:logging("logs/lastrun.log",String).

@@ -255,7 +255,7 @@ message_to_string(Packet)	->
 shuffle(List) -> shuffle(List, []).
 shuffle([], Acc) -> Acc;
 shuffle(List, Acc) ->
-    {Leading, [H | T]} = lists:split(random:uniform(length(List)) - 1, List),
+    {Leading, [H | T]} = lists:split(rand:uniform(length(List)) - 1, List),
     shuffle(Leading ++ T, [H | Acc]).
 
 	
@@ -279,7 +279,7 @@ bestimme_mis(WggT,GGTs,Mis) ->
 % berechnet ein Mi
 einmi([],Akku) -> Akku;	
 einmi([Prim|Prims],Akku) ->
-	Expo = random:uniform(3)-1, % 0 soll möglich sein!
+	Expo = rand:uniform(3)-1, % 0 soll möglich sein!
 	AkkuNeu = trunc(Akku * math:pow(Prim,Expo)), % trunc erzeugt integer, was für rem wichtig ist
 	einmi(Prims,AkkuNeu).	
 
