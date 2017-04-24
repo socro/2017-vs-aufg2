@@ -141,11 +141,15 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
         CMi > AktuellKleinsterGGT ->
           logging(Log,format("~sMi ist zu groß",[logHeader(self())])),
           if
-            HelpFlag == true -> From ! {sendy,AktuellKleinsterGGT}
+            HelpFlag == 1 -> From ! {sendy,AktuellKleinsterGGT};
+            true -> logging(Log,format("~sBriefterm Falschmeldung\n",[logHeader(self())]))
           end;
         CMi == AktuellKleinsterGGT ->
           logging(Log,format("~sGGT entspricht dem aktuellen Mi, alles gut\n",[logHeader(self())]));
-        CMi == notset ->
+        CMi < AktuellKleinsterGGT ->
+          logging(Log,format("~sBriefterm hat kleineren GGT geliefert\n",[logHeader(self())])),
+          loop(StaticConfig,GGTAnzahlGemeldet,CMi,GGTListe,Arbeitsphase);
+        AktuellKleinsterGGT == notset ->
           logging(Log,format("~sBriefterm vor der ersten Berechnung erhalten.\n",[logHeader(self())]))
       end,
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
@@ -158,7 +162,7 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       MiWerteListe = bestimme_mis(WggT,length(GGTListe)),
       sendMis(Log,GGTListe,MiWerteListe,setpm),
       sendStartMis(Log,WggT,GGTListe),
-      logging(Log,format("~sNeue Berechnung angestoßen, Wggt: ~p.\n",[logHeader(self()),WggT]),critcal),
+      logging(Log,format("~sNeue Berechnung angestoßen, Wggt: ~p.\n",[logHeader(self()),WggT]),critical),
       loop(StaticConfig,GGTAnzahlGemeldet,notset,GGTListe,Arbeitsphase)
       ;
     {calc,_WggT} when Arbeitsphase == false->
@@ -206,7 +210,9 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       ;
     kill ->
       sendKill(Log,GGTListe),
-      logging(Log,format("~sKoordinator kill\n",[logHeader(self())]))
+      logging(Log,format("~sKoordinator kill\n",[logHeader(self())])),
+      Nameservice ! {self(),{unbind,KoordName}},
+      unregister(KoordName)
       ;
     nudge ->
       sendPingGGT(Log,GGTListe),
@@ -226,5 +232,3 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       logging(Log,format("~sHiermit können wir NICHTS anfangen: ~p\n",[logHeader(self()),Any]),critical),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
   end.
-
-

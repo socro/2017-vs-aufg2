@@ -42,6 +42,7 @@ start(Starternummer) ->
                            getSteeringVal({KName,KNode},GgtConfigList,Log);
     not_found           -> logging(Log,concat([logHeader(MyPID),"Nameservice konnte Koordinator nicht finden, beende Starter..\n"]))
   end,
+  unregister(list_to_atom(StarterName)),
   logging(Log,concat([logHeader(MyPID),"Starter hat seine Arbeit beendet.\n"])).
 
 getSteeringVal(Koordinator,GgtConfigList,Log) ->
