@@ -1,7 +1,7 @@
 -module(starter).
 -export([start/1]).
 
--import(helper,[logHeader/1]).
+-import(helper,[logHeader/1,logging/3]).
 -import(werkzeug,[logging/2,get_config_value/2]).
 -import(lists,[concat/1]).
 
@@ -42,7 +42,7 @@ start(Starternummer) ->
                            getSteeringVal({KName,KNode},GgtConfigList,Log);
     not_found           -> logging(Log,concat([logHeader(MyPID),"Nameservice konnte Koordinator nicht finden, beende Starter..\n"]))
   end,
-  logging(Log,concat([logHeader(MyPID),"Starter hat seine Arbeit beendet, Node wird gestoppt.\n"])).
+  logging(Log,concat([logHeader(MyPID),"Starter hat seine Arbeit beendet.\n"])).
 
 getSteeringVal(Koordinator,GgtConfigList,Log) ->
   Koordinator ! {self(),getsteeringval},

@@ -1,7 +1,7 @@
 -module(koordinator).
 -export([start/0]).
 
--import(helper,[logHeader/1,lookup/1,shuffle/1,notify_nameservice/3]).
+-import(helper,[logHeader/1,lookup/1,shuffle/1,notify_nameservice/3,logging/3]).
 -import(werkzeug,[logging/2,get_config_value/2,bestimme_mis/2,now2string/1]).
 -import(io_lib,[format/2]).
 -import(lists,[append/2,concat/1]).

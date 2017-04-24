@@ -1,7 +1,7 @@
 -module(helper).
--import(werkzeug,[logging/2,get_config_value/2]).
+-import(werkzeug,[get_config_value/2,logging/2]).
 -import(io_lib,[format/2]).
--export([del_dir/1,logHeader/1,shuffle/1,lookup/1,notify_nameservice/3]).
+-export([del_dir/1,logHeader/1,shuffle/1,lookup/1,notify_nameservice/3,logging/3]).
 
 %% Source: http://stackoverflow.com/a/30611957
 %% Added check if directory exists
@@ -61,3 +61,8 @@ notify_nameservice(Log,Name,Nameservice) ->
   receive
     ok -> logging(Log,format("~srebind ok\n",[logHeader(self())]))
   end.
+
+logging(LogFile, String, critical) ->
+  werkzeug:logging(LogFile,String),
+  CriticalLog = lists:concat(["logs/",werkzeug:getUTC(),".log"]),
+  werkzeug:logging(CriticalLog,String).

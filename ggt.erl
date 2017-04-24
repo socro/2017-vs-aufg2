@@ -1,5 +1,5 @@
 -module(ggt).
--import(helper,[logHeader/1,notify_nameservice/3,lookup/1]).
+-import(helper,[logHeader/1,notify_nameservice/3,lookup/1,logging/3]).
 -import(werkzeug,[logging/2]).
 -import(io_lib,[format/2]).
 -export([start/1]).
