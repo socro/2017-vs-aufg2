@@ -212,14 +212,14 @@ loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase) -
       sendPingGGT(Log,GGTListe),
       loop(StaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    toggle when HelpFlag == true ->
+    toggle when HelpFlag == 1 ->
       logging(Log,format("~stoggle helpFlag von true auf false\n",[logHeader(self())]),critical),
-      NeuStaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,false],
+      NeuStaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,0],
       loop(NeuStaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
-    toggle when HelpFlag == false ->
+    toggle when HelpFlag == 0 ->
       logging(Log,format("~stoggle helpFlag von false auf true\n",[logHeader(self())]),critical),
-      NeuStaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,true],
+      NeuStaticConfig = [Log,Arbeitszeit,Termzeit,GGTAnz,Nameservice,KoordName,Quote,1],
       loop(NeuStaticConfig,GGTAnzahlGemeldet,AktuellKleinsterGGT,GGTListe,Arbeitsphase)
       ;
     Any ->
